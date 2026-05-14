@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN CORE v17.0: THE 1000-LINE OVERLORD</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono&family=Fredoka+One&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --void-bg: #020208;
+            --nebula-glow: #bc13fe;
+            --glungus-cyan: #00ffff;
+            --glungus-pink: #ff00ff;
+            --glass-panel: rgba(15, 15, 35, 0.95);
+            --board-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
+            --glitch-speed: 0.15s;
+            --ui-border-radius: 20px;
+            --text-shadow-glow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        /* BOARD COLORS: PURPLE AND BLACK */
+        .white-1e1d7 { background-color: #4b0082 !important; }
+        .black-3c85d { background-color: #000000 !important; }
+
+        /* HIGHLIGHT STYLE FOR LEGAL MOVES */
+        .highlight-move {
+            box-shadow: inset 0 0 3px 3px rgba(0, 255, 255, 0.7) !important;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--void-bg);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(0, 255, 255, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, #1a0033 0%, #010103 100%);
+            color: #ffffff;
+            font-family: 'Orbitron', sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        @keyframes master-glitch {
+            0% { clip-path: inset(10% 0 30% 0); transform: translate(-10px, 5px); filter: hue-rotate(90deg) contrast(2); }
+            10% { clip-path: inset(40% 0 10% 0); transform: translate(10px, -5px); filter: hue-rotate(180deg) saturate(3); }
+            20% { clip-path: inset(0% 0 70% 0); transform: translate(-5px, 0px); filter: invert(1); }
+            30% { clip-path: inset(50% 0 20% 0); transform: translate(5px, 10px); }
+            40% { clip-path: inset(20% 0 50% 0); transform: translate(-10px, -10px); filter: brightness(2); }
+            50% { clip-path: inset(10% 0 30% 0); transform: translate(10px, 5px); }
+            60% { clip-path: inset(70% 0 0% 0); transform: translate(-5px, 0px); filter: hue-rotate(270deg); }
+            70% { clip-path: inset(0% 0 0% 0); transform: translate(0, 0); }
+            100% { clip-path: inset(0% 0 0% 0); transform: translate(0, 0); }
+        }
+
+        .glitch-active {
+            animation: master-glitch var(--glitch-speed) infinite linear;
+        }
+
+        #master-container {
+            display: grid;
+            grid-template-columns: 650px 450px;
+            gap: 40px;
+            padding: 50px;
+            background: var(--glass-panel);
+            border: 4px solid var(--nebula-glow);
+            border-radius: 40px;
+            box-shadow: 0 0 150px rgba(188, 19, 254, 0.4);
+            backdrop-filter: blur(30px);
+            z-index: 10;
+            position: relative;
+            transform: rotateX(5deg);
+        }
+
+        .hud-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(90deg, rgba(0,0,0,0.9), rgba(20,20,40,0.8));
+            padding: 15px 25px;
+            margin: 15px 0;
+            border-radius: 15px;
+            border-right: 4px solid var(--glungus-cyan);
+            border-left: 4px solid var(--glungus-pink);
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+        }
+
+        .captured-tray {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-width: 250px;
+            min-height: 40px;
+            padding: 5px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+
+        .captured-tray img {
+            width: 24px;
+            height: 24px;
+            filter: drop-shadow(0 0 5px var(--glungus-cyan));
+            transition: transform 0.3s;
+        }
+
+        .score-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .positive-score { background: rgba(0, 255, 255, 0.2); color: var(--glungus-cyan); border: 1px solid var(--glungus-cyan); }
+        .negative-score { background: rgba(255, 0, 255, 0.2); color: var(--glungus-pink); border: 1px solid var(--glungus-pink); }
+
+        #glungus-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        #glungus-avatar {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 6px solid var(--glungus-cyan);
+            overflow: hidden;
+            box-shadow: 0 0 40px var(--glungus-cyan);
+            background: #ffffff;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .glungus-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #glungus-speech {
+            position: relative;
+            background: #000000;
+            border: 3px solid var(--glungus-pink);
+            border-radius: 25px;
+            padding: 25px;
+            width: 90%;
+            min-height: 80px;
+            margin-top: 25px;
+            font-family: 'Fredoka One', cursive;
+            color: var(--glungus-pink);
+            font-size: 1.3rem;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
+        }
+
+        .module-box {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid var(--nebula-glow);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .module-label {
+            font-size: 0.7rem;
+            letter-spacing: 5px;
+            color: var(--nebula-glow);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        #log-display {
+            height: 150px;
+            overflow-y: scroll;
+            padding-right: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        #log-display::-webkit-scrollbar { width: 5px; }
+        #log-display::-webkit-scrollbar-thumb { background: var(--nebula-glow); border-radius: 10px; }
+
+        #init-gate {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, #10002b 0%, #000 100%);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .init-panel {
+            background: #050510;
+            border: 5px solid var(--glungus-cyan);
+            padding: 60px;
+            border-radius: 50px;
+            width: 600px;
+            text-align: center;
+            box-shadow: 0 0 100px var(--glungus-cyan);
+        }
+
+        .level-card {
+            background: rgba(0, 255, 255, 0.05);
+            border: 2px solid var(--glungus-cyan);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+        }
+
+        .level-card select {
+            width: 100%;
+            padding: 15px;
+            background: #000;
+            color: #fff;
+            font-family: 'Orbitron';
+            border: 1px solid var(--glungus-cyan);
+            cursor: pointer;
+        }
+
+        .stellar-btn {
+            background: transparent;
+            border: 3px solid var(--glungus-cyan);
+            color: var(--glungus-cyan);
+            padding: 25px 40px;
+            font-family: 'Orbitron';
+            font-weight: 700;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            border-radius: 15px;
+            transition: 0.3s;
+        }
+
+        .stellar-btn:hover {
+            background: var(--glungus-cyan);
+            color: #000;
+            box-shadow: 0 0 60px var(--glungus-cyan);
+            transform: translateY(-5px);
+        }
+
+        #promo-gate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(15px);
+        }
+
+        .promo-choice-btn {
+            background: #111;
+            border: 3px solid var(--glungus-cyan);
+            margin: 20px;
+            padding: 20px;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: transform 0.2s;
+        }
+
+        .promo-choice-btn:hover { transform: scale(1.2); background: var(--glungus-cyan); }
+        .promo-choice-btn img { width: 120px; }
+
+    </style></head><body><div id="promo-gate">
+    <div style="text-align:center;">
+        <h1 style="color:var(--glungus-cyan); font-size:3rem; margin-bottom:40px;">EVOLUTION SELECT</h1>
+        <div id="promo-list"></div>
+    </div></div><div id="init-gate">
+    <div class="init-panel">
+        <div id="glungus-avatar" style="margin: 0 auto 30px;">
+            <img src="https://images.unsplash.com/photo-1595433707802-6b2626ef1c91?q=80&w=880&auto=format&fit=crop" class="glungus-img">
+        </div>
+        <h1 style="color:var(--glungus-cyan); font-size:3.5rem; margin:0;">GLUNGUS CORE</h1>
+        <p style="color:var(--glungus-pink); letter-spacing:10px;">VERSION 17.0</p>
+        
+        <div class="level-card">
+            <span class="module-label">Select Cognitive Depth (ELO)</span>
+            <select id="elo-selector">
+                <option value="1">400 - DUMB KITTEN (DEPTH 1)</option>
+                <option value="2">650 - STRAY CAT (DEPTH 2)</option>
+                <option value="3" selected>900 - PREDATOR (DEPTH 3)</option>
+                <option value="4">1100 - VOID GOD (DEPTH 4)</option>
+                <option value="5">1300 - CHESS BRAIN (DEPTH 5)</option>
+            </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:30px; margin-top:40px;">
+            <button class="stellar-btn" onclick="ENGINE.powerOn('w')">Execute White</button>
+            <button class="stellar-btn" onclick="ENGINE.powerOn('b')" style="border-color:var(--glungus-pink); color:var(--glungus-pink);">Execute Black</button>
+        </div>
+    </div></div><div id="master-container">
+    <div id="sector-alpha">
+        <div class="hud-row">
+            <div id="tray-black" class="captured-tray"></div>
+            <div id="score-black" class="score-pill">DIFF: 0</div>
+        </div>
+
+        <div id="main-board" style="width: 600px;"></div>
+
+        <div class="hud-row">
+            <div id="tray-white" class="captured-tray"></div>
+            <div id="score-white" class="score-pill">DIFF: 0</div>
+        </div>
+    </div>
+
+    <div id="sector-beta">
+        <div id="glungus-zone">
+            <div id="glungus-avatar">
+                <img src="https://images.unsplash.com/photo-1595433707802-6b2626ef1c91?q=80&w=880&auto=format&fit=crop" class="glungus-img">
+            </div>
+            <div id="glungus-speech">"i am waiting for ur blunder..."</div>
+        </div>
+
+        <div class="module-box">
+            <span class="module-label">Engine Telemetry</span>
+            <div style="display:flex; justify-content:space-between;">
+                <div style="color:var(--glungus-cyan);">ELO: <span id="telemetry-elo">900</span></div>
+                <div style="color:var(--glungus-pink);">NODES: <span id="telemetry-nodes">0</span></div>
+            </div>
+        </div>
+
+        <div class="module-box">
+            <span class="module-label">Tactical Narrative</span>
+            <div id="log-display"></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <button class="stellar-btn" style="font-size:0.7rem; padding:15px;" onclick="ENGINE.undoMove()">Undo</button>
+            <button class="stellar-btn" style="font-size:0.7rem; padding:15px; border-color:var(--glungus-pink); color:var(--glungus-pink);" onclick="location.reload()">Reset</button>
+        </div>
+    </div></div><script src="https://code.jquery.com/jquery-3.5.1.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script><script>const ENGINE = {
+    game: new Chess(),
+    board: null,
+    eloLevel: 3,
+    nodesEvaluated: 0,
+    playerColor: 'w',
+    pendingPromotion: null,
+    hasOfferedDraw: false,
+
+    openingBook: {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1": "e4",
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1": "c5",
+        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2": "Nf3",
+        "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1": "Nf6",
+        "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2": "Nf3"
+    },
+
+    pieceValues: { p: 10, n: 32, b: 33, r: 50, q: 90, k: 20000 },
+    
+    pieceFullNames: {
+        'p': 'pawn', 'n': 'horsie', 'b': 'bishop', 'r': 'rook tower', 'q': 'glungus-queen', 'k': 'kingy'
+    },
+
+    pst: {
+        p: [[0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],[5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
+        n: [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],[-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
+        b: [[-20,-10,-10,-10,-10,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,10,10,5,0,-10],[-10,5,5,10,10,5,5,-10],[-10,0,10,10,10,10,0,-10],[-10,10,10,10,10,10,10,-10],[-10,5,0,0,0,0,5,-10],[-20,-10,-10,-10,-10,-10,-10,-20]],
+        r: [[0,0,0,0,0,0,0,0],[5,10,10,10,10,10,10,5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[0,0,0,5,5,0,0,0]],
+        q: [[-20,-10,-10,-5,-5,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,5,5,5,0,-10],[-5,0,5,5,5,5,0,-5],[0,0,5,5,5,5,0,-5],[-10,5,5,5,5,5,0,-10],[-10,0,5,0,0,0,0,-10],[-20,-10,-10,-5,-5,-10,-10,-20]],
+        k: [[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,0,0,0,0,20,20],[20,30,10,0,0,10,30,20]]
+    },
+
+    powerOn: function(color) {
+        this.playerColor = color;
+        this.eloLevel = parseInt($('#elo-selector').val());
+        const displayElo = { "1": 400, "2": 650, "3": 900, "4": 1100, "5": 1300 }[this.eloLevel];
+        
+        $('#telemetry-elo').text(displayElo);
+        $('#init-gate').fadeOut(1000);
+
+        const config = {
+            draggable: true,
+            position: 'start',
+            orientation: (color === 'w' ? 'white' : 'black'),
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            onDragStart: this.onDragStart.bind(this),
+            onDrop: this.processPlayerMove.bind(this),
+            onMouseoutSquare: this.onMouseoutSquare.bind(this),
+            onMouseoverSquare: this.onMouseoverSquare.bind(this),
+            onSnapEnd: () => this.board.position(this.game.fen())
+        };
+
+        this.board = ChessBoard('main-board', config);
+        this.syncHUD();
+
+        if (this.playerColor === 'b') {
+            setTimeout(() => this.executeAITurn(), 1000);
+        }
+    },
+
+    onMouseoverSquare: function(square, piece) {
+        let moves = this.game.moves({
+            square: square,
+            verbose: true
+        });
+        if (moves.length === 0) return;
+        $('.square-' + square).addClass('highlight-move');
+        for (let i = 0; i < moves.length; i++) {
+            $('.square-' + moves[i].to).addClass('highlight-move');
+        }
+    },
+
+    onMouseoutSquare: function(square, piece) {
+        $('#main-board [class^="square-"]').removeClass('highlight-move');
+    },
+
+    onDragStart: function(source, piece, position, orientation) {
+        if (this.game.game_over()) return false;
+        if ((this.game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+            (this.game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+            return false;
+        }
+    },
+
+    processPlayerMove: function(source, target) {
+        const piece = this.game.get(source);
+        if (piece && piece.type === 'p') {
+            if ((piece.color === 'w' && target[1] === '8') || (piece.color === 'b' && target[1] === '1')) {
+                this.pendingPromotion = { from: source, to: target };
+                this.showPromotionUI(piece.color);
+                return 'snapback';
+            }
+        }
+        const move = this.game.move({ from: source, to: target, promotion: 'q' });
+        if (move === null) return 'snapback';
+        this.onMoveSuccess(move);
+    },
+
+    showPromotionUI: function(color) {
+        const options = ['q', 'r', 'b', 'n'];
+        const container = $('#promo-list').empty();
+        options.forEach(type => {
+            const imgSrc = `https://chessboardjs.com/img/chesspieces/wikipedia/${color}${type.toUpperCase()}.png`;
+            const btn = $(`<div class="promo-choice-btn"><img src="${imgSrc}"></div>`);
+            btn.on('click', () => {
+                this.game.move({ from: this.pendingPromotion.from, to: this.pendingPromotion.to, promotion: type });
+                this.board.position(this.game.fen());
+                $('#promo-gate').hide();
+                this.onMoveSuccess({ san: 'P='+type.toUpperCase(), captured: false });
+            });
+            container.append(btn);
+        });
+        $('#promo-gate').css('display', 'flex');
+    },
+
+    onMoveSuccess: function(move) {
+        this.logMessage("Player", move.san);
+        this.syncHUD();
+        if (move.captured) this.triggerGlitch();
+        if (this.game.game_over()) this.announceGameOver();
+        else this.executeAITurn();
+    },
+
+    executeAITurn: function() {
+        this.nodesEvaluated = 0;
+        $('#glungus-speech').text("...thinking...");
+        setTimeout(() => {
+            let bestMove;
+            const currentFen = this.game.fen();
+            const multiplier = (this.playerColor === 'w') ? -1 : 1;
+            const glungusScore = multiplier * this.evaluateBoard();
+            if (glungusScore < -800 && !this.hasOfferedDraw) {
+                this.hasOfferedDraw = true;
+                $('#glungus-speech').text("mow... u r too strong. draw? pls?");
+                if(confirm("Glungus is terrified and offers a draw. Accept?")) {
+                    $('#glungus-speech').text("mow! peace achieved.");
+                    this.logMessage("SYSTEM", "Game drawn by agreement.");
+                    return;
+                }
+            }
+            if (this.openingBook[currentFen]) {
+                bestMove = this.openingBook[currentFen];
+                $('#glungus-speech').text("mow! i know this book move!");
+            } else {
+                bestMove = this.calculateBestMove();
+            }
+            const moveResult = this.game.move(bestMove);
+            this.board.position(this.game.fen());
+            $('#telemetry-nodes').text(this.nodesEvaluated);
+            this.logMessage("Glungus", moveResult.san);
+            if (moveResult.captured) {
+                this.triggerGlitch();
+                const pName = this.pieceFullNames[moveResult.captured];
+                $('#glungus-speech').text(`nom nom nom ${pName} gone`);
+            } else if (!this.openingBook[currentFen]) {
+                const idlePhrases = ["glungus is supreme", "r u gonna blunder soon?", "mow? is that all?"];
+                if (Math.random() > 0.6) $('#glungus-speech').text(idlePhrases[Math.floor(Math.random() * idlePhrases.length)]);
+            }
+            this.syncHUD();
+            if (this.game.game_over()) this.announceGameOver();
+        }, 250);
+    },
+
+    calculateBestMove: function() {
+        const moves = this.game.moves();
+        let bestValue = -999999;
+        let bestMove = moves[0];
+        moves.sort(() => Math.random() - 0.5);
+        for (let i = 0; i < moves.length; i++) {
+            const move = moves[i];
+            this.game.move(move);
+            const boardValue = this.minimax(this.eloLevel - 1, -1000000, 1000000, false);
+            this.game.undo();
+            if (boardValue > bestValue) {
+                bestValue = boardValue;
+                bestMove = move;
+            }
+        }
+        return bestMove;
+    },
+
+    minimax: function(depth, alpha, beta, isMaximizingPlayer) {
+        this.nodesEvaluated++;
+        if (depth === 0) {
+            const multiplier = (this.playerColor === 'w') ? -1 : 1;
+            return multiplier * this.evaluateBoard();
+        }
+        const possibleMoves = this.game.moves();
+        if (isMaximizingPlayer) {
+            let bestValue = -999999;
+            for (let i = 0; i < possibleMoves.length; i++) {
+                this.game.move(possibleMoves[i]);
+                bestValue = Math.max(bestValue, this.minimax(depth - 1, alpha, beta, !isMaximizingPlayer));
+                this.game.undo();
+                alpha = Math.max(alpha, bestValue);
+                if (beta <= alpha) return bestValue;
+            }
+            return bestValue;
+        } else {
+            let bestValue = 999999;
+            for (let i = 0; i < possibleMoves.length; i++) {
+                this.game.move(possibleMoves[i]);
+                bestValue = Math.min(bestValue, this.minimax(depth - 1, alpha, beta, !isMaximizingPlayer));
+                this.game.undo();
+                beta = Math.min(beta, bestValue);
+                if (beta <= alpha) return bestValue;
+            }
+            return bestValue;
+        }
+    },
+
+    evaluateBoard: function() {
+        let totalEvaluation = 0;
+        const board = this.game.board();
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                totalEvaluation += this.getPieceValue(board[i][j], i, j);
+            }
+        }
+        return totalEvaluation;
+    },
+
+    getPieceValue: function(piece, x, y) {
+        if (piece === null) return 0;
+        const val = this.pieceValues[piece.type];
+        let pos = (piece.color === 'w') ? this.pst[piece.type][x][y] : this.pst[piece.type][7 - x][y];
+        const finalScore = val + (pos / 10.0);
+        return (piece.color === 'w') ? finalScore : -finalScore;
+    },
+
+    syncHUD: function() {
+        const history = this.game.history({ verbose: true });
+        const capturedByWhite = [], capturedByBlack = [];
+        let scoreW = 0, scoreB = 0;
+        history.forEach(m => {
+            if (m.captured) {
+                const cColor = (m.color === 'w' ? 'b' : 'w');
+                const imgTag = `<img src="https://chessboardjs.com/img/chesspieces/wikipedia/${cColor}${m.captured.toUpperCase()}.png">`;
+                if (m.color === 'w') { capturedByWhite.push(imgTag); scoreW += this.pieceValues[m.captured]; }
+                else { capturedByBlack.push(imgTag); scoreB += this.pieceValues[m.captured]; }
+            }
+        });
+        $('#tray-white').html(capturedByWhite.join(''));
+        $('#tray-black').html(capturedByBlack.join(''));
+        const diff = scoreW - scoreB;
+        if (this.playerColor === 'w') { this.renderScore('#score-white', diff); this.renderScore('#score-black', -diff); }
+        else { this.renderScore('#score-black', diff); this.renderScore('#score-white', -diff); }
+    },
+
+    renderScore: function(selector, val) {
+        const el = $(selector);
+        if (val === 0) el.text("EVEN").removeClass('positive-score negative-score');
+        else if (val > 0) el.text(`+${val}`).addClass('positive-score').removeClass('negative-score');
+        else el.text(`${val}`).addClass('negative-score').removeClass('positive-score');
+    },
+
+    triggerGlitch: function() {
+        $('#main-board').addClass('glitch-active');
+        setTimeout(() => $('#main-board').removeClass('glitch-active'), 400);
+    },
+
+    logMessage: function(who, san) {
+        const color = (who === "Glungus") ? 'var(--glungus-pink)' : 'var(--glungus-cyan)';
+        const entry = `<div style="margin-bottom:8px; border-bottom:1px solid #222; padding-bottom:4px;">
+            <span style="color:${color}; font-weight:bold;">${who.toUpperCase()}:</span> <span>${san}</span>
+        </div>`;
+        $('#log-display').prepend(entry);
+    },
+
+    undoMove: function() {
+        this.game.undo(); this.game.undo();
+        this.board.position(this.game.fen());
+        this.syncHUD();
+    },
+
+    announceGameOver: function() {
+        const loser = this.game.turn() === 'w' ? 'WHITE' : 'BLACK';
+        $('#glungus-speech').text("GAME OVER. MOW.");
+        alert(`FATAL ERROR: ${loser} CHECKMATED.`);
+    }
+};console.log("TITAN CORE v17.0 OPERATIONAL");</script></body></html>
