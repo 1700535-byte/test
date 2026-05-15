@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIME DELTA CORE</title>
+    <style>
+        :root { --neon: #00f2ff; --bg: #0a0a0c; --card: #141417; }
+        body { background: var(--bg); color: #fff; font-family: 'Inter', system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 16px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; text-align: center; }
+        h2 { color: var(--neon); letter-spacing: 2px; font-size: 0.9rem; text-transform: uppercase; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; border-radius: 8px; color: var(--neon); font-size: 1.1rem; margin-bottom: 20px; outline: none; transition: 0.3s; box-sizing: border-box; }
+        input:focus { border-color: var(--neon); box-shadow: 0 0 10px rgba(0,242,255,0.2); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box { background: #1c1c21; padding: 15px; border-radius: 8px; border-bottom: 2px solid #333; }
+        .val { display: block; font-size: 1.4rem; font-weight: 700; color: #fff; }
+        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Temporal Offset Scanner</h2>
+    <input type="datetime-local" id="targetTime">
+    
+    <div class="grid">
+        <div class="stat-box"><span class="val" id="d">0</span><span class="label">Days</span></div>
+        <div class="stat-box"><span class="val" id="h">0</span><span class="label">Hours</span></div>
+        <div class="stat-box"><span class="val" id="m">0</span><span class="label">Minutes</span></div>
+        <div class="stat-box"><span class="val" id="s">0</span><span class="label">Seconds</span></div>
+    </div>
+</div>
+
+<script>
+    const input = document.getElementById('targetTime');
+    const display = {
+        d: document.getElementById('d'),
+        h: document.getElementById('h'),
+        m: document.getElementById('m'),
+        s: document.getElementById('s')
+    };
+
+    function update() {
+        if (!input.value) return;
+        
+        const target = new Date(input.value).getTime();
+        const now = new Date().getTime();
+        const diff = Math.abs(target - now);
+
+        // Convert ms into totals
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        // Update UI with formatted strings
+        display.d.innerText = days.toLocaleString();
+        display.h.innerText = hours.toLocaleString();
+        display.m.innerText = minutes.toLocaleString();
+        display.s.innerText = seconds.toLocaleString();
+    }
+
+    input.addEventListener('input', update);
+    setInterval(update, 1000); // Live tick
+</script>
+
+</body>
+</html>
