@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Void Speed: No-Cheating Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #bc13fe; --bg: #050505; }
+        body {
+            background: radial-gradient(circle at center, #1a0b2e 0%, var(--bg) 100%);
+            color: white; font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; overflow: hidden;
+        }
+        .container { text-align: center; width: 90%; max-width: 600px; }
+        h1 { font-size: 3rem; letter-spacing: 10px; color: var(--primary); text-shadow: 0 0 20px var(--primary); margin: 0; }
+        #stats-row { display: flex; justify-content: center; gap: 30px; margin: 20px 0; }
+        .stat-val { font-size: 2.5rem; display: block; color: var(--primary); font-weight: bold; }
+        #spacebar {
+            width: 100%; height: 80px; border: 2px solid var(--primary); border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.05s; user-select: none; background: rgba(188, 19, 254, 0.05);
+        }
+        .active-press { background: var(--primary) !important; color: black; box-shadow: 0 0 40px var(--primary); transform: scale(0.96); }
+        #results-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            z-index: 100; flex-direction: column; align-items: center; justify-content: center; padding: 40px;
+        }
+        .chart-wrap { width: 100%; height: 350px; background: #000; border: 1px solid #222; border-radius: 10px; }
+        button { margin-top: 30px; background: var(--primary); border: none; padding: 15px 40px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="results-overlay">
+        <h2 style="color:var(--primary)">HPS CONSISTENCY REPORT</h2>
+        <div class="chart-wrap"><canvas id="hpsChart"></canvas></div>
+        <button onclick="reset()">RETRY</button>
+    </div>
+
+    <div class="container">
+        <h1>VOID SPEED</h1>
+        <div id="stats-row">
+            <div>TIME<span id="timer" class="stat-val">10.0</span></div>
+            <div>TOTAL<span id="total" class="stat-val">0</span></div>
+        </div>
+        <div id="spacebar">TAP SPACE TO START</div>
+        <p id="warning" style="color: red; opacity: 0; margin-top: 10px;">ANTI-CHEAT: RELEASE SPACE!</p>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let timeLeft = 10.0;
+        let totalHits = 0;
+        let hitTimestamps = [];
+        let hpsHistory = [];
+        let interval;
+        let chart = null;
+
+        // NEW: Anti-hold logic
+        let isKeyDown = false; 
+
+        const space = document.getElementById('spacebar');
+        const timerDisplay = document.getElementById('timer');
+        const totalDisplay = document.getElementById('total');
+        const warning = document.getElementById('warning');
+        const overlay = document.getElementById('results-overlay');
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                
+                // If they are holding it down, 'isKeyDown' will stay true
+                // and this block will be ignored until they release it.
+                if (isKeyDown) {
+                    warning.style.opacity = 1;
+                    return;
+                }
+
+                isKeyDown = true; // Lock the key
+                if (overlay.style.display === 'flex') return;
+                
+                if (!isRunning && timeLeft === 10.0) start();
+                
+                if (isRunning) {
+                    totalHits++;
+                    hitTimestamps.push(performance.now());
+                    totalDisplay.innerText = totalHits;
+                    space.classList.add('active-press');
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                isKeyDown = false; // Unlock the key
+                warning.style.opacity = 0;
+                space.classList.remove('active-press');
+            }
+        });
+
+        function start() {
+            isRunning = true;
+            interval = setInterval(() => {
+                timeLeft -= 0.1;
+                timerDisplay.innerText = Math.max(0, timeLeft).toFixed(1);
+
+                const now = performance.now();
+                const currentHPS = hitTimestamps.filter(ts => ts > (now - 1000)).length;
+                hpsHistory.push(currentHPS);
+
+                if (timeLeft <= 0) end();
+            }, 100);
+        }
+
+        function end() {
+            isRunning = false;
+            clearInterval(interval);
+            overlay.style.display = 'flex';
+            renderChart();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('hpsChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hpsHistory.map((_, i) => (i * 0.1).toFixed(1) + 's'),
+                    datasets: [{
+                        label: 'Hits Per Second',
+                        data: hpsHistory,
+                        borderColor: '#bc13fe',
+                        backgroundColor: 'rgba(188, 19, 254, 0.1)',
+                        fill: true, tension: 0.3, pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#bc13fe' } },
+                        x: { ticks: { color: '#666', maxTicksLimit: 10 } }
+                    }
+                }
+            });
+        }
+
+        function reset() {
+            overlay.style.display = 'none';
+            totalHits = 0;
+            timeLeft = 10.0;
+            hitTimestamps = [];
+            hpsHistory = [];
+            totalDisplay.innerText = "0";
+            timerDisplay.innerText = "10.0";
+            space.innerText = "READY... TAP!";
+        }
+    </script>
+</body>
+</html>
